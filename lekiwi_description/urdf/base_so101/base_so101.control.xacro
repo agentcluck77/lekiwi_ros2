@@ -1,0 +1,240 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Arguments (externally settable via command line or parent xacro) -->
+  <xacro:arg name="serial_port" default="/dev/ttySERVO"/>
+  <xacro:arg name="baud_rate" default="1000000"/>
+  <xacro:arg name="use_mock" default="false"/>
+  <xacro:arg name="use_sync_write" default="true"/>
+  <xacro:arg name="left_motor_id" default="7"/>
+  <xacro:arg name="back_motor_id" default="8"/>
+  <xacro:arg name="right_motor_id" default="9"/>
+  <xacro:arg name="internal_max_vel" default="254"/>
+  <xacro:arg name="internal_max_acc" default="254"/>
+  <xacro:arg name="internal_acc_coeff" default="100"/>
+  <xacro:arg name="internal_control_period" default="20"/>
+
+  <!-- so101's own properties (arm_max_velocity_rads etc, "arm_"-prefixed so they can't
+       collide with this file's own max_velocity_rads etc below). Included here, before the
+       arm args right after, because their defaults source from these properties. -->
+  <xacro:include filename="$(find so_arm_description)/urdf/so101/so101.control.xacro"/>
+  <xacro:include filename="$(find so_arm_description)/urdf/so101/so101.module.xacro"/>
+
+  <!-- SO-101 arm arguments. serial_port/baud_rate/use_mock/use_sync_write/
+       ros2_control_hardware_type/mujoco_model/mujoco_headless are deliberately NOT
+       redeclared here - they're the base's own args above, shared across the one
+       servo bus both the wheels and the arm are on; so_arm_module/so_arm_joints
+       never reference their own copies of those names (verified: they're declared
+       in so101.urdf.xacro's standalone <ros2_control>, which base_so101 doesn't use). -->
+  <xacro:arg name="arm_operating_mode"     default="${arm_operating_mode}"/>
+  <xacro:arg name="gripper_operating_mode" default="${gripper_operating_mode}"/>
+  <xacro:arg name="shoulder_pan_motor_id" default="${shoulder_pan_motor_id}"/>
+  <xacro:arg name="shoulder_lift_motor_id" default="${shoulder_lift_motor_id}"/>
+  <xacro:arg name="elbow_flex_motor_id" default="${elbow_flex_motor_id}"/>
+  <xacro:arg name="wrist_flex_motor_id" default="${wrist_flex_motor_id}"/>
+  <xacro:arg name="wrist_roll_motor_id" default="${wrist_roll_motor_id}"/>
+  <xacro:arg name="gripper_motor_id" default="${gripper_motor_id}"/>
+  <xacro:arg name="shoulder_pan_p_coefficient" default="${shoulder_pan_p_coefficient}"/>
+  <xacro:arg name="shoulder_pan_d_coefficient" default="${shoulder_pan_d_coefficient}"/>
+  <xacro:arg name="shoulder_pan_i_coefficient" default="${shoulder_pan_i_coefficient}"/>
+  <xacro:arg name="shoulder_lift_p_coefficient" default="${shoulder_lift_p_coefficient}"/>
+  <xacro:arg name="shoulder_lift_d_coefficient" default="${shoulder_lift_d_coefficient}"/>
+  <xacro:arg name="shoulder_lift_i_coefficient" default="${shoulder_lift_i_coefficient}"/>
+  <xacro:arg name="elbow_flex_p_coefficient" default="${elbow_flex_p_coefficient}"/>
+  <xacro:arg name="elbow_flex_d_coefficient" default="${elbow_flex_d_coefficient}"/>
+  <xacro:arg name="elbow_flex_i_coefficient" default="${elbow_flex_i_coefficient}"/>
+  <xacro:arg name="wrist_flex_p_coefficient" default="${wrist_flex_p_coefficient}"/>
+  <xacro:arg name="wrist_flex_d_coefficient" default="${wrist_flex_d_coefficient}"/>
+  <xacro:arg name="wrist_flex_i_coefficient" default="${wrist_flex_i_coefficient}"/>
+  <xacro:arg name="wrist_roll_p_coefficient" default="${wrist_roll_p_coefficient}"/>
+  <xacro:arg name="wrist_roll_d_coefficient" default="${wrist_roll_d_coefficient}"/>
+  <xacro:arg name="wrist_roll_i_coefficient" default="${wrist_roll_i_coefficient}"/>
+  <xacro:arg name="gripper_p_coefficient" default="${gripper_p_coefficient}"/>
+  <xacro:arg name="gripper_d_coefficient" default="${gripper_d_coefficient}"/>
+  <xacro:arg name="gripper_i_coefficient" default="${gripper_i_coefficient}"/>
+  <xacro:arg name="deadband" default="${deadband}"/>
+  <!-- false = omit the wrist camera mount/body/frame links and their fixed joints -->
+  <xacro:arg name="wrist_camera_urdf" default="true"/>
+
+  <!-- BNO055 IMU parameters (externally settable) -->
+  <xacro:arg name="enable_camera"   default="true"/>    <!-- camera sensor interfaces only when streaming is enabled -->
+  <xacro:arg name="imu"             default="true"/>    <!-- false = no physical IMU; omits the lekiwi_imu sensor block below (real hardware only) -->
+  <xacro:arg name="imu_i2c_bus"     default="1"/>       <!-- I2C bus number (/dev/i2c-1) -->
+  <xacro:arg name="imu_i2c_addr"    default="28"/>      <!-- I2C address: 28 = 0x28 (ADR pin low) -->
+  <xacro:arg name="imu_axis_remap"  default="P1"/>      <!-- Mounting orientation P0-P7, see BNO055 datasheet Table 3-4 -->
+  <xacro:arg name="imu_sensor_mode" default="NDOF"/>    <!-- Fusion mode: NDOF, NDOF_FMC_OFF, IMUPLUS -->
+
+  <!-- Configurable hardware parameters (STS3215 defaults) -->
+  <xacro:arg name="sts3215_max_vel_steps" default="3400"/>  <!-- STS3215=3400, STS3032=2900, STS3235=3400 -->
+  <xacro:arg name="proportional_acc_max"   default="25"/>    <!-- [0-254]; 0 = disable proportional ACC -->
+  <xacro:arg name="proportional_vel_max"   default="0"/>     <!-- [0-max_velocity_steps]; 0 = each joint uses commanded velocity -->
+
+  <!-- Simulation -->
+  <!-- "real" (default): STS3215 serial plugin. "mujoco": MujocoSystemInterface, driving
+       wheels+arm and hosting IMU below, wired into control.launch.py. "gazebo": GazeboSimSystem, xacro-only. -->
+  <xacro:arg name="ros2_control_hardware_type" default="real"/>
+  <xacro:arg name="simulation_controllers" default=""/>
+  <xacro:arg name="payload_simulation_controllers" default=""/>
+  <!-- MJCF scene path and headless flag; only used when ros2_control_hardware_type:="mujoco". -->
+  <xacro:arg name="mujoco_model" default=""/>
+  <xacro:arg name="mujoco_headless" default="false"/>
+
+  <!-- Base operating mode -->
+  <xacro:property name="base_operating_mode" value="1"/>  <!-- Velocity mode -->
+
+  <!-- Motor-specific parameter — sourced from arg, STS3215 default -->
+  <xacro:property name="sts3215_max_vel_steps" value="$(arg sts3215_max_vel_steps)"/>  <!-- Max hardware velocity in steps/s -->
+
+  <!-- Proportional ACC parameters (SyncWriteSpe velocity path only) -->
+  <xacro:property name="proportional_acc_max" value="$(arg proportional_acc_max)"/>        <!-- [0-254] -->
+
+  <!-- Wheel geometry for omnidirectional control -->
+  <xacro:property name="theta" value="${2*pi/3}"/>  <!-- 120° between wheels -->
+
+  <!-- Maximum allowable speed/acceleration/torque for each motor -->
+  <xacro:property name="max_velocity_steps" value="${int(sts3215_max_vel_steps * 0.85)}"/> <!-- steps/second (85% of hardware max, 15% safety margin) -->
+  <xacro:property name="max_velocity_rads" value="${max_velocity_steps*2*pi/4096}"/> <!-- rad/s -->
+  <xacro:property name="max_torque_nm" value="2.942"/> <!-- N⋅m (30 kgf⋅cm for STS3215) -->
+
+  <!-- Omnidirectional Kinematics Calculations -->
+  <xacro:property name="max_linear_velocity_x" value="${wheel_radius * max_velocity_rads / (sqrt(3)/2)}"/>
+  <xacro:property name="max_linear_velocity_y" value="${wheel_radius * max_velocity_rads / 1.0}"/>
+  <xacro:property name="max_angular_velocity_z" value="${wheel_radius * max_velocity_rads / wheel_base_radius}"/>
+
+  <!-- ROS 2 CONTROL -->
+  <!-- System interface — all STS3215 joints (base + arm) on a single serial bus -->
+  <ros2_control name="lekiwi_base" type="system">
+    <hardware>
+      <xacro:if value="${'$(arg ros2_control_hardware_type)' == 'gazebo'}">
+        <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+      </xacro:if>
+      <xacro:if value="${'$(arg ros2_control_hardware_type)' == 'mujoco'}">
+        <plugin>mujoco_ros2_control/MujocoSystemInterface</plugin>
+        <param name="mujoco_model">$(arg mujoco_model)</param>
+        <param name="headless">$(arg mujoco_headless)</param>
+      </xacro:if>
+      <xacro:if value="${'$(arg ros2_control_hardware_type)' == 'real'}">
+        <plugin>sts_hardware_interface/STSHardwareInterface</plugin>
+        <!-- Serial communication parameters -->
+        <param name="serial_port">$(arg serial_port)</param>
+        <param name="baud_rate">$(arg baud_rate)</param>
+        <param name="use_sync_write">$(arg use_sync_write)</param>
+        <param name="enable_mock_mode">$(arg use_mock)</param>
+        <!-- Proportional ACC: scale per-wheel acceleration so all wheels finish ramping in equal time -->
+        <param name="proportional_acc_max">${proportional_acc_max}</param>
+        <!-- Proportional VEL: scale per-joint speed so all position joints arrive simultaneously -->
+        <param name="proportional_vel_max">$(arg proportional_vel_max)</param>
+      </xacro:if>
+    </hardware>
+    <!-- Left wheel joint (Motor ID 7) -->
+    <joint name="left_wheel_joint">
+      <param name="motor_id">$(arg left_motor_id)</param>
+      <param name="operating_mode">${base_operating_mode}</param>
+      <param name="max_velocity_steps">${sts3215_max_vel_steps}</param>
+      <param name="internal_max_vel">$(arg internal_max_vel)</param>
+      <param name="internal_max_acc">$(arg internal_max_acc)</param>
+      <param name="internal_acc_coeff">$(arg internal_acc_coeff)</param>
+      <param name="internal_control_period">$(arg internal_control_period)</param>
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+      <xacro:if value="${'$(arg ros2_control_hardware_type)' == 'real'}">
+        <state_interface name="voltage"/>
+        <state_interface name="temperature"/>
+        <state_interface name="current"/>
+        <state_interface name="is_moving"/>
+      </xacro:if>
+    </joint>
+    <!-- Back wheel joint (Motor ID 8) -->
+    <joint name="back_wheel_joint">
+      <param name="motor_id">$(arg back_motor_id)</param>
+      <param name="operating_mode">${base_operating_mode}</param>
+      <param name="max_velocity_steps">${sts3215_max_vel_steps}</param>
+      <param name="internal_max_vel">$(arg internal_max_vel)</param>
+      <param name="internal_max_acc">$(arg internal_max_acc)</param>
+      <param name="internal_acc_coeff">$(arg internal_acc_coeff)</param>
+      <param name="internal_control_period">$(arg internal_control_period)</param>
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+      <xacro:if value="${'$(arg ros2_control_hardware_type)' == 'real'}">
+        <state_interface name="voltage"/>
+        <state_interface name="temperature"/>
+        <state_interface name="current"/>
+        <state_interface name="is_moving"/>
+      </xacro:if>
+    </joint>
+    <!-- Right wheel joint (Motor ID 9) -->
+    <joint name="right_wheel_joint">
+      <param name="motor_id">$(arg right_motor_id)</param>
+      <param name="operating_mode">${base_operating_mode}</param>
+      <param name="max_velocity_steps">${sts3215_max_vel_steps}</param>
+      <param name="internal_max_vel">$(arg internal_max_vel)</param>
+      <param name="internal_max_acc">$(arg internal_max_acc)</param>
+      <param name="internal_acc_coeff">$(arg internal_acc_coeff)</param>
+      <param name="internal_control_period">$(arg internal_control_period)</param>
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+      <xacro:if value="${'$(arg ros2_control_hardware_type)' == 'real'}">
+        <state_interface name="voltage"/>
+        <state_interface name="temperature"/>
+        <state_interface name="current"/>
+        <state_interface name="is_moving"/>
+      </xacro:if>
+    </joint>
+
+    <!-- Arm joints (motor IDs 1-6), same bus as the wheels above -->
+    <xacro:so_arm_joints/>
+
+    <xacro:if value="${'$(arg ros2_control_hardware_type)' == 'mujoco'}">
+      <xacro:if value="${'$(arg imu)' == 'true'}">
+        <sensor name="bno055">
+          <param name="mujoco_type">imu</param>
+          <state_interface name="orientation.x"/>
+          <state_interface name="orientation.y"/>
+          <state_interface name="orientation.z"/>
+          <state_interface name="orientation.w"/>
+          <state_interface name="angular_velocity.x"/>
+          <state_interface name="angular_velocity.y"/>
+          <state_interface name="angular_velocity.z"/>
+          <state_interface name="linear_acceleration.x"/>
+          <state_interface name="linear_acceleration.y"/>
+          <state_interface name="linear_acceleration.z"/>
+        </sensor>
+      </xacro:if>
+    </xacro:if>
+  </ros2_control>
+
+  <!-- ROS 2 CONTROL -->
+  <!-- Real hardware only - mujoco hosts its sensor inside lekiwi_base above; also omitted
+       when imu:=false. -->
+  <xacro:if value="${'$(arg ros2_control_hardware_type)' == 'real' and '$(arg imu)' == 'true'}">
+    <ros2_control name="lekiwi_imu" type="sensor">
+      <hardware>
+        <plugin>bno055_hardware_interface/BNO055HardwareInterface</plugin>
+        <param name="i2c_bus">$(arg imu_i2c_bus)</param>
+        <param name="i2c_addr">$(arg imu_i2c_addr)</param>
+        <param name="axis_remap">$(arg imu_axis_remap)</param>
+        <param name="sensor_mode">$(arg imu_sensor_mode)</param>
+        <param name="enable_mock_mode">$(arg use_mock)</param>
+      </hardware>
+      <sensor name="bno055">
+        <state_interface name="orientation.x"/>
+        <state_interface name="orientation.y"/>
+        <state_interface name="orientation.z"/>
+        <state_interface name="orientation.w"/>
+        <state_interface name="angular_velocity.x"/>
+        <state_interface name="angular_velocity.y"/>
+        <state_interface name="angular_velocity.z"/>
+        <state_interface name="linear_acceleration.x"/>
+        <state_interface name="linear_acceleration.y"/>
+        <state_interface name="linear_acceleration.z"/>
+      </sensor>
+    </ros2_control>
+  </xacro:if>
+
+</robot>
