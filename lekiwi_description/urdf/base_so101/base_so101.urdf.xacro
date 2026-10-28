@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="lekiwi">
+
+  <xacro:include filename="$(find lekiwi_description)/urdf/base_so101/base_so101.common.xacro"/>
+  <xacro:include filename="$(find lekiwi_description)/urdf/base_so101/base_so101.control.xacro"/>
+  <xacro:include filename="$(find lekiwi_description)/urdf/base/base.module.xacro"/>
+
+  <link name="base_footprint"/>
+
+  <xacro:lekiwi_base_module parent="base_footprint">
+    <origin xyz="0 0 ${wheel_radius - wheel_base_offset_z}" rpy="0 0 0"/>
+  </xacro:lekiwi_base_module>
+
+  <xacro:so_arm_module parent="base_link">
+    <origin xyz="${so101_base_offset_x} 0 ${so101_base_offset_z}" rpy="0 0 0"/>
+  </xacro:so_arm_module>
+
+  <!-- Gazebo simulation: spawns controller_manager inside the gz_sim process, loading
+       both $(arg simulation_controllers) (base) and $(arg payload_simulation_controllers)
+       (arm) - gz_ros2_control's <parameters> tag can be given multiple times and
+       controller_manager merges them. Inert (ignored) outside Gazebo, so this is safe to
+       leave in place regardless of ros2_control_hardware_type. -->
+  <gazebo>
+    <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(arg simulation_controllers)</parameters>
+      <parameters>$(arg payload_simulation_controllers)</parameters>
+    </plugin>
+  </gazebo>
+
+</robot>

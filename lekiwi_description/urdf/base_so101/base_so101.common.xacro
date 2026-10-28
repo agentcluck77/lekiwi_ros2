@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:include filename="$(find lekiwi_description)/urdf/base/base.common.xacro"/>
+  <xacro:include filename="$(find so_arm_description)/urdf/so101/so101.common.xacro"/>
+
+  <!-- SO-101 mount point on base_link (integration-specific offsets).
+       PLACEHOLDER - not measured against real hardware, same status as
+       so_arm_bringup's wrist-camera calibration. Update once the arm's
+       physical mount position on the real LeKiwi chassis is known. -->
+  <xacro:property name="so101_base_offset_x" value="0"/>
+  <xacro:property name="so101_base_offset_z" value="0.05"/>
+
+</robot>
