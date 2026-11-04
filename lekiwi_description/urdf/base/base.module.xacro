@@ -3,7 +3,8 @@
 
   <xacro:include filename="$(find lekiwi_description)/urdf/base/base.common.xacro"/>
 
-  <xacro:macro name="lekiwi_base_module" params="parent *origin">
+  <!-- lidar/imu/mic: false omits that payload's links and joints (e.g. a base without them). -->
+  <xacro:macro name="lekiwi_base_module" params="parent *origin lidar:=true imu:=true mic:=true">
 
     <!-- Material definitions (referenced by links below) -->
     <material name="base_light_grey">
@@ -41,6 +42,7 @@
       </inertial>
     </link>
 
+    <xacro:if value="${lidar}">
     <!-- LD06 laser link -->
     <link name="laser_link">
       <visual>
@@ -92,7 +94,9 @@
         </lidar>
       </sensor>
     </gazebo>
+    </xacro:if>
 
+    <xacro:if value="${imu}">
     <!-- BNO055 IMU link -->
     <link name="imu_link">
       <visual>
@@ -143,7 +147,9 @@
         </sensor>
       </gazebo>
     </xacro:if>
+    </xacro:if>
 
+    <xacro:if value="${mic}">
     <!-- Respeaker flex mic link -->
     <link name="mic_link">
       <visual>
@@ -164,6 +170,7 @@
         <inertia ixx="0.00001" ixy="0.0" ixz="0.0" iyy="0.00001" iyz="0.0" izz="0.00001"/>
       </inertial>
     </link>
+    </xacro:if>
 
     <!-- Left wheel link -->
     <link name="left_wheel_link">
@@ -230,6 +237,7 @@
 
     <!-- JOINTS -->
 
+    <xacro:if value="${lidar}">
     <!-- laser fixed joint -->
     <joint name="laser_joint" type="fixed">
       <parent link="base_link"/>
@@ -243,7 +251,9 @@
       <child link="laser_frame"/>
       <origin xyz="0 0 ${laser_frame_offset_z}" rpy="0 0 0"/>
     </joint>
+    </xacro:if>
 
+    <xacro:if value="${imu}">
     <!-- IMU fixed joint -->
     <joint name="imu_joint" type="fixed">
       <parent link="base_link"/>
@@ -257,13 +267,16 @@
       <child link="imu_frame"/>
       <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint>
+    </xacro:if>
 
+    <xacro:if value="${mic}">
     <!-- Respeaker flex mic fixed joint -->
     <joint name="mic_joint" type="fixed">
       <parent link="base_link"/>
       <child link="mic_link"/>
       <origin xyz="${mic_base_offset_x} 0 ${mic_base_offset_z}" rpy="0 0 0"/>
     </joint>
+    </xacro:if>
 
     <!-- left wheel joint: 60 degrees anti-clockwise from +X at radius wheel_base_radius -->
     <joint name="left_wheel_joint" type="continuous">

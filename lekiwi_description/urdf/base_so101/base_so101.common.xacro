@@ -4,11 +4,10 @@
   <xacro:include filename="$(find lekiwi_description)/urdf/base/base.common.xacro"/>
   <xacro:include filename="$(find so_arm_description)/urdf/so101/so101.common.xacro"/>
 
-  <!-- SO-101 mount point on base_link (integration-specific offsets).
-       PLACEHOLDER - not measured against real hardware, same status as
-       so_arm_bringup's wrist-camera calibration. Update once the arm's
-       physical mount position on the real LeKiwi chassis is known. -->
-  <xacro:property name="so101_base_offset_x" value="0"/>
-  <xacro:property name="so101_base_offset_z" value="0.05"/>
+  <!-- SO-101 mount point on base_link, from registering this base mesh and the SO-101
+       base meshes against the official SIGRobotics-UIUC LeKiwi CAD assembly (~4 mm
+       mesh-fit residual). Not measured on a physical robot. -->
+  <xacro:property name="so101_base_offset_x" value="0.034"/>
+  <xacro:property name="so101_base_offset_z" value="0.057"/>
 
 </robot>

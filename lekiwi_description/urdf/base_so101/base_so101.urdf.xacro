@@ -5,9 +5,13 @@
   <xacro:include filename="$(find lekiwi_description)/urdf/base_so101/base_so101.control.xacro"/>
   <xacro:include filename="$(find lekiwi_description)/urdf/base/base.module.xacro"/>
 
+  <!-- Optional base payloads; imu is declared in base_so101.control.xacro. -->
+  <xacro:arg name="lidar" default="true"/>
+  <xacro:arg name="mic" default="true"/>
+
   <link name="base_footprint"/>
 
-  <xacro:lekiwi_base_module parent="base_footprint">
+  <xacro:lekiwi_base_module parent="base_footprint" lidar="$(arg lidar)" imu="$(arg imu)" mic="$(arg mic)">
     <origin xyz="0 0 ${wheel_radius - wheel_base_offset_z}" rpy="0 0 0"/>
   </xacro:lekiwi_base_module>
 
